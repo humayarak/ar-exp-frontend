@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AR Tool Tracker</title>
+
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      z-index: 999;
+      text-align: center;
+      max-width: 90%;
+    }
+
+    .overlay button {
+      margin: 4px;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .fallback {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a2e;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      z-index: 9999;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="overlay" id="overlay">
+    <h2>AR Tool Tracker</h2>
+    <p id="status">Loading tool data...</p>
+    <div id="dataPanel"></div>
+  </div>
+
+  <div class="fallback hidden" id="fallback">
+    <p>Camera access is unavailable or was denied.</p>
+    <p id="fallbackData">Loading tool tracking data...</p>
+    <a href="/">Back to Dashboard</a>
+  </div>
+
+  <a-scene
+    embedded
+    arjs="sourceType: webcam; debugUIEnabled: false;"
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true;"
+    id="arScene"
+  >
+
+    <a-marker preset="hiro" id="hiroMarker">
+
+      <a-box
+        position="0 0.5 0"
+        scale="0.8 0.8 0.8"
+        color="#4CC3D9"
+        opacity="0.9"
+      ></a-box>
+
+      <a-text
+        id="arText"
+        value="Loading..."
+        position="0 1.4 0"
+        align="center"
+        color="#ffffff"
+        scale="1.5 1.5 1.5"
+      ></a-text>
+
+    </a-marker>
+
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const dataPanelEl = document.getElementById("dataPanel");
+    const fallbackEl = document.getElementById("fallback");
+    const overlayEl = document.getElementById("overlay");
+    const markerEl = document.getElementById("hiroMarker");
+    const arTextEl = document.getElementById("arText");
+
+    let currentTool = null;
+
+
+    // Fallback Handling
+    function showFallback(message) {
+      fallbackEl.classList.remove("hidden");
+      overlayEl.classList.add("hidden");
+
+      const arScene = document.getElementById("arScene");
+      if (arScene) arScene.style.display = "none";
+
+      fallbackEl.querySelector("p").textContent = message;
+    }
+
+    function checkCameraSupport() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showFallback("Your browser does not support camera access.");
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          stream.getTracks().forEach(track => track.stop());
+        })
+        .catch(() => {
+          showFallback("Camera permission denied or unavailable.");
+        });
+    }
+
+    // Load Tool Data
+    async function loadToolData() {
+      try {
+        const res = await fetch("/api/tools");
+        const tools = await res.json();
+
+        if (!tools || tools.length === 0) {
+          statusEl.textContent = "No tools available.";
+          dataPanelEl.innerHTML = "<p>No tool data found.</p>";
+          return;
+        }
+
+        const available = tools.filter(t => t.status === "available");
+        const inUse = tools.filter(t => t.status === "in-use");
+        const missing = tools.filter(t => t.status === "missing");
+
+        currentTool = available.length > 0 ? available[0] : tools[0];
+
+        dataPanelEl.innerHTML = `
+          <p>Total: ${tools.length} | Available: ${available.length} | In Use: ${inUse.length} | Missing: ${missing.length}</p>
+        `;
+
+        if (currentTool) {
+
+          arTextEl.setAttribute("value", `${currentTool.name}\n(${currentTool.status})`);
+
+          let colour = "#00cc66";
+          if (currentTool.status === "in-use") colour = "#f0c040";
+          if (currentTool.status === "missing") colour = "#cc3333";
+
+          const box = markerEl.querySelector("a-box");
+          if (box) box.setAttribute("color", colour);
+
+          dataPanelEl.innerHTML += `
+            <p><strong>${currentTool.name}</strong></p>
+            <button onclick="updateToolStatus('in-use')">Use</button>
+            <button onclick="updateToolStatus('available')">Return</button>
+            <button onclick="updateToolStatus('missing')">Missing</button>
+          `;
+        }
+
+        statusEl.textContent = "Point camera at the Hiro marker.";
+
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = "Failed to load tool data.";
+      }
+    }
+
+    // Update Tool Status
+    async function updateToolStatus(status) {
+      if (!currentTool) return;
+
+      try {
+        await fetch(`/api/tools/${currentTool.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ status })
+        });
+
+        loadToolData();
+
+      } catch (err) {
+        console.error("Update failed:", err);
+      }
+    }
+
+    // Marker Events 
+    window.addEventListener("load", () => {
+      markerEl.addEventListener("markerFound", () => {
+        statusEl.textContent = "Marker detected!";
+        statusEl.style.color = "#7ef7a0";
+      });
+
+      markerEl.addEventListener("markerLost", () => {
+        statusEl.textContent = "Marker lost — point camera again.";
+        statusEl.style.color = "#f0c040";
+      });
+    });
+
+    // Init
+    checkCameraSupport();
+    loadToolData();
+
+  </script>
+
+</body>
+</html>
