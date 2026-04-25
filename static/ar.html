@@ -1,231 +1,241 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AR Tool Tracker</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AR Maintenance System</title>
 
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: sans-serif;
-    }
+<style>
+body { margin:0; overflow:hidden; font-family:sans-serif; }
 
-    .overlay {
-      position: fixed;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.6);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 8px;
-      z-index: 999;
-      text-align: center;
-      max-width: 90%;
-    }
+.overlay {
+  position: fixed;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  background: rgba(0,0,0,0.6);
+  color:white;
+  padding:10px;
+  border-radius:8px;
+  z-index:999;
+}
 
-    .overlay button {
-      margin: 4px;
-      padding: 6px 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
+.logbar {
+  position: fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  background: rgba(0,20,40,0.9);
+  color:#00FF88;
+  font-family: monospace;
+  font-size:0.8rem;
+  padding:10px;
+  max-height:120px;
+  overflow-y:auto;
+  z-index:999;
+}
 
-    .fallback {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #1a1a2e;
-      color: white;
-      text-align: center;
-      padding: 20px;
-      z-index: 9999;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-  </style>
+.hidden { display:none; }
+</style>
 </head>
 
 <body>
 
-  <div class="overlay" id="overlay">
-    <h2>AR Tool Tracker</h2>
-    <p id="status">Loading tool data...</p>
-    <div id="dataPanel"></div>
-  </div>
+<div class="overlay">
+  <a href="/">Return to Tool Tracker</a> |  <a href="/faults">Return to Faults Logs</a>
+  <h3>AR Maintenance</h3>
+  <p id="status">Scanning...</p>
+  <div id="dataPanel"></div>
+</div>
 
-  <div class="fallback hidden" id="fallback">
-    <p>Camera access is unavailable or was denied.</p>
-    <p id="fallbackData">Loading tool tracking data...</p>
-    <a href="/">Back to Dashboard</a>
-  </div>
+<div class="logbar" id="logbar"></div>
 
-  <a-scene
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
-    vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true;"
-    id="arScene"
-  >
+<a-scene embedded arjs="sourceType: webcam; debugUIEnabled:false;">
 
-    <a-marker preset="hiro" id="hiroMarker">
+  <!-- Tool marker -->
+  <a-marker preset="hiro" id="toolMarker">
 
-      <a-box
-        position="0 0.5 0"
-        scale="0.8 0.8 0.8"
-        color="#4CC3D9"
-        opacity="0.9"
-      ></a-box>
+    <a-box id="toolBox"
+      position="0 0.5 0"
+      scale="0.8 0.8 0.8"
+      opacity="0.9"
+      animation="property: rotation; to: 0 360 0; loop: true; dur: 3000">
+    </a-box>
 
-      <a-text
-        id="arText"
-        value="Loading..."
-        position="0 1.4 0"
-        align="center"
-        color="#ffffff"
-        scale="1.5 1.5 1.5"
-      ></a-text>
+    <a-text id="toolText"
+      value="Tool"
+      position="0 1.4 0"
+      align="center"
+      color="#ffffff">
+    </a-text>
 
-    </a-marker>
+  </a-marker>
 
-    <a-entity camera></a-entity>
-  </a-scene>
+  <!-- Fault marker -->
+  <a-marker preset="kanji" id="faultMarker">
 
-  <script>
-    const statusEl = document.getElementById("status");
-    const dataPanelEl = document.getElementById("dataPanel");
-    const fallbackEl = document.getElementById("fallback");
-    const overlayEl = document.getElementById("overlay");
-    const markerEl = document.getElementById("hiroMarker");
-    const arTextEl = document.getElementById("arText");
+    <a-text value="FAULT DETECTED"
+      position="0 1.2 0"
+      align="center"
+      color="#FF4444">
+    </a-text>
 
-    let currentTool = null;
+    <a-text id="faultText"
+      value="Loading..."
+      position="0 0.5 0"
+      align="center"
+      color="#ffffff">
+    </a-text>
 
+    <a-sphere id="faultSphere"
+      position="0 0.2 0"
+      radius="0.3"
+      material="color:red; opacity:0.4; wireframe:true">
+    </a-sphere>
 
-    // Fallback Handling
-    function showFallback(message) {
-      fallbackEl.classList.remove("hidden");
-      overlayEl.classList.add("hidden");
+  </a-marker>
 
-      const arScene = document.getElementById("arScene");
-      if (arScene) arScene.style.display = "none";
+  <a-entity camera></a-entity>
 
-      fallbackEl.querySelector("p").textContent = message;
+</a-scene>
+
+<script>
+const statusEl = document.getElementById("status");
+const logbar = document.getElementById("logbar");
+
+const toolMarker = document.getElementById("toolMarker");
+const faultMarker = document.getElementById("faultMarker");
+
+const toolText = document.getElementById("toolText");
+const toolBox = document.getElementById("toolBox");
+
+const faultText = document.getElementById("faultText");
+const faultSphere = document.getElementById("faultSphere");
+
+const dataPanel = document.getElementById("dataPanel");
+
+// Mini log bar system
+function logEvent(msg, type="info"){
+  const time = new Date().toLocaleTimeString();
+  const entry = document.createElement("div");
+
+  entry.textContent = `[${time}] ${msg}`;
+  entry.style.color = type === "warn" ? "#FF8800" : "#00FF88";
+
+  logbar.appendChild(entry);
+  logbar.scrollTop = logbar.scrollHeight;
+}
+
+// Load tool
+async function loadTool(){
+  const res = await fetch("/api/tools");
+  const tools = await res.json();
+
+  if(!tools.length) return;
+
+  const tool = tools[0];
+
+  toolText.setAttribute("value", `${tool.name}\n(${tool.status})`);
+
+  let colour = "#00cc66";
+  if(tool.status === "in-use") colour = "#f0c040";
+  if(tool.status === "missing") colour = "#cc3333";
+
+  toolBox.setAttribute("color", colour);
+}
+
+// Update tool
+async function updateTool(status){
+  const res = await fetch("/api/tools");
+  const tools = await res.json();
+
+  if(!tools.length) return;
+
+  const tool = tools[0];
+
+  await fetch(`/api/tools/${tool.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status })
+  });
+
+  loadTool();
+}
+
+// Load fault
+async function loadFault(){
+  try {
+    const res = await fetch("/api/faults/detect");
+    const data = await res.json();
+
+    if (!data.detected) {
+      faultText.setAttribute("value", "No faults detected");
+      faultSphere.setAttribute("material", "color:green; opacity:0.3;");
+      logEvent("No faults detected");
+      return;
     }
 
-    function checkCameraSupport() {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showFallback("Your browser does not support camera access.");
-        return;
-      }
+    const fault = data.fault;
 
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          stream.getTracks().forEach(track => track.stop());
-        })
-        .catch(() => {
-          showFallback("Camera permission denied or unavailable.");
-        });
-    }
+    faultText.setAttribute(
+      "value",
+      `${fault.type}\nSeverity: ${fault.severity}`
+    );
 
-    // Load Tool Data
-    async function loadToolData() {
-      try {
-        const res = await fetch("/api/tools");
-        const tools = await res.json();
+    let colour = "red";
+    if (fault.severity === "medium") colour = "orange";
+    if (fault.severity === "low") colour = "yellow";
 
-        if (!tools || tools.length === 0) {
-          statusEl.textContent = "No tools available.";
-          dataPanelEl.innerHTML = "<p>No tool data found.</p>";
-          return;
-        }
+    faultSphere.setAttribute(
+      "material",
+      `color:${colour}; opacity:0.4; wireframe:true`
+    );
 
-        const available = tools.filter(t => t.status === "available");
-        const inUse = tools.filter(t => t.status === "in-use");
-        const missing = tools.filter(t => t.status === "missing");
+    logEvent(`Fault detected: ${fault.type}`, "warn");
 
-        currentTool = available.length > 0 ? available[0] : tools[0];
+  } catch (err) {
+    console.error(err);
+    faultText.setAttribute("value", "Detection error");
+  }
+}
 
-        dataPanelEl.innerHTML = `
-          <p>Total: ${tools.length} | Available: ${available.length} | In Use: ${inUse.length} | Missing: ${missing.length}</p>
-        `;
+// Events
+// Tool
+toolMarker.addEventListener("markerFound", ()=>{
+  statusEl.textContent = "Tool detected";
+  logEvent("Tool marker detected");
 
-        if (currentTool) {
+  dataPanel.innerHTML = `
+    <button onclick="updateTool('in-use')">Use</button>
+    <button onclick="updateTool('available')">Return</button>
+    <button onclick="updateTool('missing')">Missing</button>
+  `;
+});
 
-          arTextEl.setAttribute("value", `${currentTool.name}\n(${currentTool.status})`);
+toolMarker.addEventListener("markerLost", ()=>{
+  dataPanel.innerHTML = "";
+  statusEl.textContent = "Tool marker lost";
+});
 
-          let colour = "#00cc66";
-          if (currentTool.status === "in-use") colour = "#f0c040";
-          if (currentTool.status === "missing") colour = "#cc3333";
+// Fault
+faultMarker.addEventListener("markerFound", ()=>{
+  statusEl.textContent = "Fault detected";
+  logEvent("Fault marker detected", "warn");
 
-          const box = markerEl.querySelector("a-box");
-          if (box) box.setAttribute("color", colour);
+  dataPanel.innerHTML = ""; // clear tool buttons
+  loadFault(); // reload data
+    
+});
 
-          dataPanelEl.innerHTML += `
-            <p><strong>${currentTool.name}</strong></p>
-            <button onclick="updateToolStatus('in-use')">Use</button>
-            <button onclick="updateToolStatus('available')">Return</button>
-            <button onclick="updateToolStatus('missing')">Missing</button>
-          `;
-        }
+faultMarker.addEventListener("markerLost", ()=>{
+  statusEl.textContent = "Fault marker lost";
+  faultText.setAttribute("value", "No fault");
+});
 
-        statusEl.textContent = "Point camera at the Hiro marker.";
-
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = "Failed to load tool data.";
-      }
-    }
-
-    // Update Tool Status
-    async function updateToolStatus(status) {
-      if (!currentTool) return;
-
-      try {
-        await fetch(`/api/tools/${currentTool.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ status })
-        });
-
-        loadToolData();
-
-      } catch (err) {
-        console.error("Update failed:", err);
-      }
-    }
-
-    // Marker Events 
-    window.addEventListener("load", () => {
-      markerEl.addEventListener("markerFound", () => {
-        statusEl.textContent = "Marker detected!";
-        statusEl.style.color = "#7ef7a0";
-      });
-
-      markerEl.addEventListener("markerLost", () => {
-        statusEl.textContent = "Marker lost — point camera again.";
-        statusEl.style.color = "#f0c040";
-      });
-    });
-
-    // Init
-    checkCameraSupport();
-    loadToolData();
-
-  </script>
-
-</body>
-</html>
+// INIT
+loadTool();
+logEvent("System ready");
+</script>

@@ -1,10 +1,10 @@
 const { Sequelize } = require("sequelize");
 
-const DATABASE_URL = "sqlite:./items.db";
+const DATABASE_URL = "sqlite:./tools.db";
 
 const sequelize = new Sequelize({
   dialect: "sqlite",
-  storage: "./items.db",
+  storage: "./tools.db",
   logging: false
 });
 

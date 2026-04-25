@@ -5,7 +5,7 @@ const Tool = require("../models/Tool");
 const Log = require("../models/Log");
 const { ToolCreateSchema, ToolUpdateSchema } = require("../schemas/toolSchema");
 
-// GET all tools
+// Get all tools
 router.get("/", async (req, res) => {
   try {
     const { status } = req.query;
@@ -23,7 +23,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET single tool
+// Get single tool
 router.get("/:id", async (req, res) => {
   try {
     const tool = await Tool.findByPk(req.params.id);
@@ -39,7 +39,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// CREATE tool
+// Create tool
 router.post("/", async (req, res) => {
   try {
     const { error } = ToolCreateSchema.validate(req.body);
@@ -74,7 +74,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// UPDATE tool status
+// Update tool status
 router.patch("/:id", async (req, res) => {
   try {
     const { error } = ToolUpdateSchema.validate(req.body);
@@ -89,7 +89,6 @@ router.patch("/:id", async (req, res) => {
       return res.status(404).json({ error: "Tool not found" });
     }
 
-    // Update tool
     tool.status = req.body.status;
     tool.last_checked_by = "engineer";
     await tool.save();

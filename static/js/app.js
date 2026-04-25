@@ -100,7 +100,7 @@ listEl?.addEventListener("click", async (e) => {
   }
 });
 
-// Filters
+// Filter events
 filterAllBtn?.addEventListener("click", async () => {
   currentFilter = null;
   await refresh();

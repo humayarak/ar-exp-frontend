@@ -8,6 +8,8 @@ const Log = require("./models/Log");
 
 const toolRoutes = require("./routes/tools");
 
+const faultRoutes = require("./routes/faults");
+
 const app = express();
 
 app.use(express.json());
@@ -21,6 +23,8 @@ app.use((req, res, next) => {
 
 // API routes
 app.use("/api/tools", toolRoutes);
+
+app.use("/api/faults", faultRoutes);
 
 app.get("/api/logs", async (req, res) => {
   try {
@@ -38,6 +42,10 @@ app.get("/", (req, res) => {
 
 app.get("/ar", (req, res) => {
   res.sendFile(path.join(__dirname, "static/ar.html"));
+});
+
+app.get("/faults", (req, res) => {
+  res.sendFile(path.join(__dirname, "static/faults.html"));
 });
 
 // Health
