@@ -2,17 +2,10 @@ const { DataTypes } = require("sequelize");
 const { sequelize } = require("../database");
 
 const Fault = sequelize.define("Fault", {
-  type: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  severity: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  location: {
-    type: DataTypes.STRING
-  },
+  type: DataTypes.STRING,
+  severity: DataTypes.STRING,
+  location: DataTypes.STRING,
+
   status: {
     type: DataTypes.STRING,
     defaultValue: "open"
