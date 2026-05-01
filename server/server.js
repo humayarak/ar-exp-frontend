@@ -1,74 +1,78 @@
 const express = require("express");
 const path = require("path");
-const cors = require("cors");
 require("dotenv").config();
 
 const { sequelize } = require("./database");
 
-require("./models/Tool");
-require("./models/Fault");
 const Log = require("./models/Log");
 
 const toolRoutes = require("./routes/tools");
+
 const faultRoutes = require("./routes/faults");
 
 const app = express();
 
-/* Middleware */
-app.use(cors());
-app.use(express.json());
+const cors = require("cors");
 
+app.use(cors({
+  origin: "http://localhost:5173" // React dev server
+}));
+
+app.use(express.json());
+app.use(express.static("../client/dist"));
+
+// Optional request logging (good for debugging)
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
+  console.log(`${req.method} ${req.url}`);
   next();
 });
 
-/* API */
+// API routes
 app.use("/api/tools", toolRoutes);
+
 app.use("/api/faults", faultRoutes);
 
-app.get("/api/logs", async (req, res, next) => {
+app.get("/api/logs", async (req, res) => {
   try {
-    const logs = await Log.findAll({
-      order: [["createdAt", "DESC"]]
-    });
-
+    const logs = await Log.findAll();
     res.json(logs);
   } catch (err) {
-    next(err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-/* Health */
+// Pages
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "static/index.html"));
+});
+
+app.get("/ar", (req, res) => {
+  res.sendFile(path.join(__dirname, "static/ar.html"));
+});
+
+app.get("/faults", (req, res) => {
+  res.sendFile(path.join(__dirname, "static/faults.html"));
+});
+
+// Health
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-/* React build (production) */
-const clientBuildPath = path.join(__dirname, "../client/dist");
+// Favicon fix
+app.get("/favicon.ico", (req, res) => res.status(204));
 
-app.use(express.static(clientBuildPath));
-
-
-app.get("/*", (req, res) => {
-  if (req.path.startsWith("/api")) {
-    return res.status(404).json({ error: "Route not found" });
-  }
-
-  res.sendFile(path.join(clientBuildPath, "index.html"));
-});
-
-/* Error handler */
+// Global error handler
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: "Server error" });
+  res.status(500).json({ error: "Unexpected server error" });
 });
 
-/* Start */
+// Start server
 const PORT = process.env.PORT || 3000;
 
 sequelize.sync().then(() => {
   app.listen(PORT, () => {
-    console.log(`Server running on ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 });

@@ -7,32 +7,23 @@ const Tool = sequelize.define("Tool", {
     primaryKey: true,
     autoIncrement: true
   },
-
   name: {
     type: DataTypes.STRING,
     allowNull: false
   },
-
   type: {
     type: DataTypes.STRING,
     allowNull: false
   },
-
-  location: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-
   status: {
     type: DataTypes.STRING,
-    defaultValue: "available"
+    allowNull: false,
+    defaultValue: "available" // available, in use, missing
   },
-
   assigned_to: {
     type: DataTypes.STRING,
     allowNull: true
   },
-
   last_checked: {
     type: DataTypes.DATE,
     allowNull: true

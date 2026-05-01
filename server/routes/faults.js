@@ -3,48 +3,67 @@ const router = express.Router();
 
 const Fault = require("../models/Fault");
 
-/* Get all */
+// Get all faults
 router.get("/", async (req, res) => {
-  const faults = await Fault.findAll();
-  res.json(faults);
+  try {
+    const faults = await Fault.findAll();
+    res.json(faults);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-/* Detect */
 router.get("/detect", async (req, res) => {
-  const fault = await Fault.findOne({
-    where: { status: "open" }
-  });
-
-  if (!fault) {
-    return res.json({ detected: false });
-  }
-
-  res.json({
-    detected: true,
-    fault
-  });
-});
-
-/* Add */
-router.post("/", async (req, res) => {
-  const fault = await Fault.create(req.body);
-  res.status(201).json(fault);
-});
-
-/* Resolve */
-router.patch("/:id", async (req, res) => {
-  const fault = await Fault.findByPk(req.params.id);
-
-  if (!fault) {
-    return res.status(404).json({
-      error: "Fault not found"
+  try {
+    const fault = await Fault.findOne({
+      where: { status: "open" }
     });
+
+    if (!fault) {
+      return res.json({
+        detected: false,
+        message: "No faults detected"
+      });
+    }
+
+    res.json({
+      detected: true,
+      fault
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Detection failed" });
   }
-
-  fault.status = req.body.status;
-  await fault.save();
-
-  res.json(fault);
 });
+
+// Create fault
+router.post("/", async (req, res) => {
+  try {
+    const fault = await Fault.create(req.body);
+    res.status(201).json(fault);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Update fault status
+router.patch("/:id", async (req, res) => {
+  try {
+    const fault = await Fault.findByPk(req.params.id);
+
+    if (!fault) {
+      return res.status(404).json({ error: "Fault not found" });
+    }
+
+    fault.status = req.body.status;
+    await fault.save();
+
+    res.json(fault);
+
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 
 module.exports = router;

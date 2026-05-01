@@ -3,55 +3,63 @@ const router = express.Router();
 
 const Tool = require("../models/Tool");
 const Log = require("../models/Log");
-const {
-  ToolCreateSchema,
-  ToolUpdateSchema
-} = require("../schemas/toolSchema");
+const { ToolCreateSchema, ToolUpdateSchema } = require("../schemas/toolSchema");
 
-/* Get all tools */
+// Get all tools
 router.get("/", async (req, res) => {
   try {
-    const where = {};
+    const { status } = req.query;
 
-    if (req.query.status) {
-      where.status = req.query.status;
+    let where = {};
+    if (status) {
+      where.status = status;
     }
 
     const tools = await Tool.findAll({ where });
     res.json(tools);
 
-  } catch {
+  } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* Get one */
+// Get single tool
 router.get("/:id", async (req, res) => {
-  const tool = await Tool.findByPk(req.params.id);
+  try {
+    const tool = await Tool.findByPk(req.params.id);
 
-  if (!tool) {
-    return res.status(404).json({ error: "Tool not found" });
+    if (!tool) {
+      return res.status(404).json({ error: "Tool not found" });
+    }
+
+    res.json(tool);
+
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
   }
-
-  res.json(tool);
 });
 
-/* Create */
+// Create tool
 router.post("/", async (req, res) => {
   try {
     const { error } = ToolCreateSchema.validate(req.body);
 
     if (error) {
       return res.status(422).json({
-        error: error.details[0].message
+        error: {
+          message: error.details[0].message
+        }
       });
     }
 
     const tool = await Tool.create({
-      ...req.body,
+      name: req.body.name,
+      type: req.body.type,
+      location: req.body.location,
       status: "available"
     });
 
+    // Log creation
     await Log.create({
       tool_id: tool.id,
       action: "created",
@@ -60,20 +68,19 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(tool);
 
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* Update status */
+// Update tool status
 router.patch("/:id", async (req, res) => {
   try {
     const { error } = ToolUpdateSchema.validate(req.body);
 
     if (error) {
-      return res.status(422).json({
-        error: error.details[0].message
-      });
+      return res.status(422).json({ error: error.details[0].message });
     }
 
     const tool = await Tool.findByPk(req.params.id);
@@ -83,10 +90,10 @@ router.patch("/:id", async (req, res) => {
     }
 
     tool.status = req.body.status;
-    tool.last_checked = new Date();
-
+    tool.last_checked_by = "engineer";
     await tool.save();
 
+    // Log status change
     await Log.create({
       tool_id: tool.id,
       action: req.body.status,
@@ -95,7 +102,8 @@ router.patch("/:id", async (req, res) => {
 
     res.json(tool);
 
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
